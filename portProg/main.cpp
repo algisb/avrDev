@@ -82,9 +82,11 @@ int main()
 	usleep(2000000);
 	write (fd, "hello!1\n", 8);           // send 7 character greeting
 
-	usleep ((8) * 100);             // sleep enough to transmit the 7 plus
+	//usleep ((8 + 25) * 100);             // sleep enough to transmit the 7 plus
 					     // receive 25:  approx 100 uS per char transmit
-	//char buf [100];
-	//int n = read (fd, buf, sizeof(buf));  // read up to 100 characters if ready to read
+	char buf [100];
+	int n = read (fd, buf, sizeof(buf));  // read up to 100 characters if ready to read
+	printf("data: %c \n", buf[0]);
+
 	return 0;
 }
