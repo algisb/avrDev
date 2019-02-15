@@ -1,6 +1,7 @@
 #include <avr/io.h> 
 #include <util/delay.h>
- 
+#include <stdio.h> 
+
 #define BLINK_DELAY_MS 100
 
 #define LCD_REG_SELECT 0
@@ -72,11 +73,27 @@ void LCD_clear()
 
 void LCD_string(char * _str)
 {
+		//LCD_command(0xC0);
 	int i;
+	int onSecondLine = 0;
 	for(i=0;_str[i]!=0;i++)		/* Send each char of string till the NULL */
 	{
+		if(i > 31)
+			break;
+
+	
+		if(onSecondLine == 0)
+		{
+			if(_str[i] == '\n' || i > 15)
+			{
+			
+				LCD_command(0xC0);
+				onSecondLine = 1;
+			}
+		}
 		LCD_char (_str[i]);
 	}
+	
 }
 
 void LCD_reset()
@@ -122,29 +139,22 @@ int main (void)
 	LCD_string("hello world!");
 	while(1)
 	{
-		//LCD_char('k');
-	//LCD_command(0x0c);
-
-		//checkIfBusy();
-		/* set pin 5 high to turn led on */
-		//PORTB |= _BV(PORTB5);
+		int i;
+		for(i = 0; i < 4; i++)
+		{
+			LCD_clear();
+			char buff[4];
+			sprintf(buff, "%d", i+1);
+			LCD_string(buff);
+			_delay_ms(1000);
+			
+		}
 		
-		//PORTB |= (1 << 3);
-		//PORTD = 0b00000000;
-		//LCD_Command(0x06);
-		_delay_ms(BLINK_DELAY_MS);
-		//LCD_Clear();
-		//LCD_Command(0x01);
-		/* set pin 5 low to turn led off */
-		LCD_command(0x01);
-		LCD_string("yep! ");	
-		//PORTB |= (1 << 3);
-		//PORTB &= ~_BV(PORTB5);
-		//PORTB ^= 0b001000;
-		//PORTB = 0b000000;
-		//PORTD = 0b00000000;
-		//LCD_Command(0x06);
-		_delay_ms(BLINK_DELAY_MS);
-	 }
+		LCD_clear();
+		LCD_string("Hello world!");
+		_delay_ms(1000);
+		//_delay_ms(BLINK_DELAY_MS);
+		//_delay_ms(BLINK_DELAY_MS);
+	}
 }
 
