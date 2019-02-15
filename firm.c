@@ -94,11 +94,8 @@ void LCD_reset()
 	}
 }
 
-int main (void)
+void LCD_init()
 {
-	/* set pin 5 of PORTB for output*/
-	//DDRB |= _BV(DDB5);
-
 	DDRD = 0xFF;
 	DDRB = 0b001111;
 	
@@ -116,9 +113,13 @@ int main (void)
 	_delay_ms(2);
 	
 
-	//LCD_clear();	
-	//LCD_char('k');
-	LCD_string("Eat a dick nigga!");
+}
+
+int main (void)
+{
+	
+	LCD_init();	
+	LCD_string("hello world!");
 	while(1)
 	{
 		//LCD_char('k');
@@ -136,7 +137,7 @@ int main (void)
 		//LCD_Command(0x01);
 		/* set pin 5 low to turn led off */
 		LCD_command(0x01);
-		LCD_string("booty booty booty booty \n booty booty booty ");	
+		LCD_string("yep! ");	
 		//PORTB |= (1 << 3);
 		//PORTB &= ~_BV(PORTB5);
 		//PORTB ^= 0b001000;
