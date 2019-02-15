@@ -1,58 +1,148 @@
 #include <avr/io.h> 
 #include <util/delay.h>
-#include <avr/interrupt.h>
+ 
+#define BLINK_DELAY_MS 100
 
-#define BLINK_DELAY_MS 1000
-#define BLINK_DELAY_MS_2 100
+#define LCD_REG_SELECT 0
+#define LCD_READ_WRITE 1
+#define LCD_ENABLE 2
+
+#define DATA_PORT PORTD
+#define COMMAND_PORT PORTB
 
 
-ISR(INT0_vect)
+
+
+void LCD_command( unsigned char _cmnd )
 {
-	unsigned int i;
-	//_delay_ms(500); // Software debouncing control
- 
-	/* This for loop blink LEDs on Dataport 5 times*/
-	for(i = 0; i<20; i++)
+	//DDRD = 0xFF;
+	//DDRB = 0b001111;
+
+	//DATA_PORT = 0b00000000;
+	//COMMAND_PORT = 0b000000;
+	
+
+	COMMAND_PORT &= ~(1 << LCD_READ_WRITE);	
+	DATA_PORT = _cmnd;/* Sending upper nibble */
+	
+	COMMAND_PORT &= ~(1 << LCD_REG_SELECT);		/* RS=0, command reg. */
+	COMMAND_PORT |= (1 << LCD_ENABLE);		/* Enable pulse */
+	_delay_ms(1);
+	COMMAND_PORT &= ~(1 << LCD_ENABLE);
+	_delay_ms(1);
+	DATA_PORT = (_cmnd << 4);/* Sending lower nibble */
+	COMMAND_PORT |= (1 << LCD_ENABLE);
+	_delay_ms(1);
+	COMMAND_PORT &= ~(1 << LCD_ENABLE);
+	_delay_ms(1);
+}
+
+
+void LCD_char( unsigned char _char )
+{
+	//DDRD = 0xFF;
+	//DDRB = 0b001111;
+
+	//DATA_PORT = 0b00000000;
+	//COMMAND_PORT = 0b000000;
+	
+
+	COMMAND_PORT &= ~(1 << LCD_READ_WRITE);	
+	DATA_PORT = _char;/* Sending upper nibble */
+	
+	COMMAND_PORT |= (1 << LCD_REG_SELECT);		/* RS=1, data reg. */
+	COMMAND_PORT |= (1 << LCD_ENABLE);		/* Enable pulse */
+	_delay_ms(1);
+	COMMAND_PORT &= ~(1 << LCD_ENABLE);
+	_delay_ms(1);
+	DATA_PORT = (_char << 4);/* Sending lower nibble */
+	COMMAND_PORT |= (1 << LCD_ENABLE);
+	_delay_ms(1);
+	COMMAND_PORT &= ~(1 << LCD_ENABLE);
+	_delay_ms(2);
+}
+
+
+void LCD_clear()
+{
+	LCD_command (0x01);		/* Clear display */
+	_delay_ms(2);
+	LCD_command (0x80);		/* Cursor at home position */
+}
+
+void LCD_string(char * _str)
+{
+	int i;
+	for(i=0;_str[i]!=0;i++)		/* Send each char of string till the NULL */
 	{
-		PORTB = 0b010000;
-		_delay_ms(BLINK_DELAY_MS_2);	// Wait 5 seconds
-		PORTB = 0b000000;
-		_delay_ms(BLINK_DELAY_MS_2);	// Wait 5 seconds
-	}	
-}	
+		LCD_char (_str[i]);
+	}
+}
 
+void LCD_reset()
+{
+	int i;
+	for(i = 0; i < 3; i++)
+	{
+		COMMAND_PORT &= ~(1 << LCD_READ_WRITE);	
+		DATA_PORT = 0x03;
+		COMMAND_PORT &= ~(1 << LCD_REG_SELECT);		/* RS=0, command reg. */
+		COMMAND_PORT |= (1 << LCD_ENABLE);		/* Enable pulse */
+		_delay_ms(1);
+		COMMAND_PORT &= ~(1 << LCD_ENABLE);
+		_delay_ms(1);
+	}
+}
 
-
-
- 
 int main (void)
 {
-	DDRD = 1<<PD2;		// Set PD2 as input (Using for interupt INT0)
-	PORTD = 1<<PD2;		// Enable PD2 pull-up resistor
- 
-	DDRB = 0xFF;		// Configure Dataport as output
-	PORTB = 0x00;	// Initialise Dataport to 1
- 
-	EIMSK = 1<<INT0;					// Enable INT0
-	MCUCR = 1<<ISC01 | 1<<ISC00;	// Trigger INT0 on rising edge
- 
-	sei();				//Enable Global Interrupt
-
-
 	/* set pin 5 of PORTB for output*/
 	//DDRB |= _BV(DDB5);
- 	//DDRB = 0b010000;
+
+	DDRD = 0xFF;
+	DDRB = 0b001111;
+	
+	DATA_PORT = 0b00000000;
+	COMMAND_PORT = 0b000000;
+
+	LCD_reset();
+	_delay_ms(20);			/* LCD Power ON delay always >15ms */
+	
+	LCD_command(0x02);		/* send for 4 bit initialization of LCD  */
+	LCD_command(0x28);              /* 2 line, 5*7 matrix in 4-bit mode */
+	LCD_command(0x0c);              /* Display on cursor off*/
+	LCD_command(0x06);              /* Increment cursor (shift cursor to right)*/
+	LCD_command(0x01);              /* Clear display screen*/
+	_delay_ms(2);
+	
+
+	//LCD_clear();	
+	//LCD_char('k');
+	LCD_string("Eat a dick nigga!");
 	while(1)
 	{
+		//LCD_char('k');
+	//LCD_command(0x0c);
+
+		//checkIfBusy();
 		/* set pin 5 high to turn led on */
 		//PORTB |= _BV(PORTB5);
 		
-		PORTB = 0b010000;
+		//PORTB |= (1 << 3);
+		//PORTD = 0b00000000;
+		//LCD_Command(0x06);
 		_delay_ms(BLINK_DELAY_MS);
-		
+		//LCD_Clear();
+		//LCD_Command(0x01);
 		/* set pin 5 low to turn led off */
+		LCD_command(0x01);
+		LCD_string("booty booty booty booty \n booty booty booty ");	
+		//PORTB |= (1 << 3);
 		//PORTB &= ~_BV(PORTB5);
-		PORTB = 0b000000;
+		//PORTB ^= 0b001000;
+		//PORTB = 0b000000;
+		//PORTD = 0b00000000;
+		//LCD_Command(0x06);
 		_delay_ms(BLINK_DELAY_MS);
 	 }
 }
