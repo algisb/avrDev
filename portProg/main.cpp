@@ -44,6 +44,7 @@ int set_interface_attribs (int fd, int speed, int parity)
                 return -1;
         }
         return 0;
+
 }
 
 void set_blocking (int fd, int should_block)
@@ -80,13 +81,17 @@ int main()
 
 
 	usleep(2000000);
-	write (fd, "hello!1\n", 8);           // send 7 character greeting
-
-	//usleep ((8 + 25) * 100);             // sleep enough to transmit the 7 plus
-					     // receive 25:  approx 100 uS per char transmit
-	char buf [100];
-	int n = read (fd, buf, sizeof(buf));  // read up to 100 characters if ready to read
-	printf("data: %c \n", buf[0]);
+	char * data = "is it chill if I chill?\n";
+	
+	for(int i = 0; i < 10; i++) {
+		printf("[+] Writing string to UART.\n");
+		write (fd, data, strlen(data));
+		usleep(1000 * 1000);
+	}
+		
+	//char buf [100];
+	//int n = read (fd, buf, sizeof(buf));  // read up to 100 characters if ready to read
+	//printf("data: %c \n", buf[0]);
 
 	return 0;
 }

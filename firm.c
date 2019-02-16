@@ -15,24 +15,33 @@
 #define BAUD 9600
 
 #include <util/setbaud.h>
-void uart_init(void) {
-    UBRR0H = UBRRH_VALUE;
-    UBRR0L = UBRRL_VALUE;
+void uart_init(void)
+{
+	UBRR0H = UBRRH_VALUE;
+	UBRR0L = UBRRL_VALUE;
 
-#if USE_2X
-    UCSR0A |= 1 << U2X0;
-#else
-    UCSR0A &= ~(1 << U2X0);
-#endif
-
-    UCSR0C = 1 << UCSZ01 | 1 << UCSZ00; /* 8-bit data */
-    UCSR0B = 1 << RXEN0 | 1 << TXEN0;   /* Enable RX and TX */
+//#if USE_2X
+//	UCSR0A |= 1 << U2X0;
+//#else
+	UCSR0A &= ~(1 << U2X0);
+//#endif
+	
+	UCSR0C = 1 << UCSZ01 | 1 << UCSZ00; /* 8-bit data */
+	UCSR0B = 1 << RXEN0 | 1 << TXEN0;   /* Enable RX and TX */
 }
 
-void uart_putchar(char c) {
-    UDR0 = c;
-    loop_until_bit_is_set(UCSR0A, TXC0); /* Wait until transmission ready. */
+void uart_putchar(char c)
+{
+	UDR0 = c;
+	loop_until_bit_is_set(UCSR0A, TXC0); /* Wait until transmission ready. */
 }
+
+char uart_getchar(void) 
+{
+	loop_until_bit_is_set(UCSR0A, RXC0); /* Wait until data exists. */
+	return UDR0;
+}
+
 
 void LCD_command( unsigned char _cmnd )
 {
@@ -151,23 +160,30 @@ int main (void)
 	LCD_string("hello world!");
 	while(1)
 	{
-		int i;
-		for(i = 0; i < 4; i++)
+		char line[32];
+		int i = 0;
+		while(1)
 		{
-			LCD_clear();
-			char buff[4];
-			sprintf(buff, "%d", i+1);
-			LCD_string(buff);
-			_delay_ms(1000);
-			
+			line[i] = uart_getchar();
+			if (line[i] == '\n') break;
+			i++;
 		}
+		line[i] = 0;
 		
+		
+		//	buff[i] = data;
+		//	i++;
+		//}
+		//char buff[32];
+		
+		
+		//sprintf(buff, "Data: %c", data);
+
 		LCD_clear();
-		LCD_string("Hello world!");
+		LCD_string(line);
 		
-		uart_putchar('k');
-		//USART_transmit('k');
-		_delay_ms(1000);
+		//uart_putchar('k');	
+		//_delay_ms(3000);
 		//_delay_ms(BLINK_DELAY_MS);
 		//_delay_ms(BLINK_DELAY_MS);
 	}
