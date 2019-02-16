@@ -11,27 +11,45 @@
 #define DATA_PORT PORTD
 #define COMMAND_PORT PORTB
 
+#define F_CPU 16000000UL
+#define BAUD 9600
 
+#include <util/setbaud.h>
+void uart_init(void) {
+    UBRR0H = UBRRH_VALUE;
+    UBRR0L = UBRRL_VALUE;
 
+#if USE_2X
+    UCSR0A |= 1 << U2X0;
+#else
+    UCSR0A &= ~(1 << U2X0);
+#endif
+
+    UCSR0C = 1 << UCSZ01 | 1 << UCSZ00; /* 8-bit data */
+    UCSR0B = 1 << RXEN0 | 1 << TXEN0;   /* Enable RX and TX */
+}
+
+void uart_putchar(char c) {
+    UDR0 = c;
+    loop_until_bit_is_set(UCSR0A, TXC0); /* Wait until transmission ready. */
+}
 
 void LCD_command( unsigned char _cmnd )
 {
-	//DDRD = 0xFF;
-	//DDRB = 0b001111;
+	//set port direction to output
+	DDRD |= 0xF0;
+	DDRB |= 0b000111;
 
-	//DATA_PORT = 0b00000000;
-	//COMMAND_PORT = 0b000000;
 	
-
 	COMMAND_PORT &= ~(1 << LCD_READ_WRITE);	
-	DATA_PORT = _cmnd;/* Sending upper nibble */
+	DATA_PORT = (DATA_PORT & 0x0F) | (_cmnd & 0xF0);/* Sending upper nibble */
 	
 	COMMAND_PORT &= ~(1 << LCD_REG_SELECT);		/* RS=0, command reg. */
 	COMMAND_PORT |= (1 << LCD_ENABLE);		/* Enable pulse */
 	_delay_ms(1);
 	COMMAND_PORT &= ~(1 << LCD_ENABLE);
 	_delay_ms(1);
-	DATA_PORT = (_cmnd << 4);/* Sending lower nibble */
+	DATA_PORT = (DATA_PORT & 0x0F) | (_cmnd << 4);/* Sending lower nibble */
 	COMMAND_PORT |= (1 << LCD_ENABLE);
 	_delay_ms(1);
 	COMMAND_PORT &= ~(1 << LCD_ENABLE);
@@ -41,22 +59,19 @@ void LCD_command( unsigned char _cmnd )
 
 void LCD_char( unsigned char _char )
 {
-	//DDRD = 0xFF;
-	//DDRB = 0b001111;
-
-	//DATA_PORT = 0b00000000;
-	//COMMAND_PORT = 0b000000;
-	
+	//set port direction to output
+	DDRD |= 0xF0;
+	DDRB |= 0b000111;
 
 	COMMAND_PORT &= ~(1 << LCD_READ_WRITE);	
-	DATA_PORT = _char;/* Sending upper nibble */
+	DATA_PORT = (DATA_PORT & 0x0F) | (_char & 0xF0);/* Sending upper nibble */
 	
 	COMMAND_PORT |= (1 << LCD_REG_SELECT);		/* RS=1, data reg. */
 	COMMAND_PORT |= (1 << LCD_ENABLE);		/* Enable pulse */
 	_delay_ms(1);
 	COMMAND_PORT &= ~(1 << LCD_ENABLE);
 	_delay_ms(1);
-	DATA_PORT = (_char << 4);/* Sending lower nibble */
+	DATA_PORT = (DATA_PORT & 0x0F) | (_char << 4);/* Sending lower nibble */
 	COMMAND_PORT |= (1 << LCD_ENABLE);
 	_delay_ms(1);
 	COMMAND_PORT &= ~(1 << LCD_ENABLE);
@@ -73,7 +88,6 @@ void LCD_clear()
 
 void LCD_string(char * _str)
 {
-		//LCD_command(0xC0);
 	int i;
 	int onSecondLine = 0;
 	for(i=0;_str[i]!=0;i++)		/* Send each char of string till the NULL */
@@ -92,12 +106,15 @@ void LCD_string(char * _str)
 			}
 		}
 		LCD_char (_str[i]);
-	}
-	
+	}	
 }
 
 void LCD_reset()
 {
+
+	DDRD |= 0xF0;
+	DDRB |= 0b000111;
+	//send 0x03 to the LCD 3 times to make sure its in its inital 8 bit state	
 	int i;
 	for(i = 0; i < 3; i++)
 	{
@@ -113,12 +130,7 @@ void LCD_reset()
 
 void LCD_init()
 {
-	DDRD = 0xFF;
-	DDRB = 0b001111;
-	
-	DATA_PORT = 0b00000000;
-	COMMAND_PORT = 0b000000;
-
+		
 	LCD_reset();
 	_delay_ms(20);			/* LCD Power ON delay always >15ms */
 	
@@ -134,8 +146,8 @@ void LCD_init()
 
 int main (void)
 {
-	
 	LCD_init();	
+	uart_init();	
 	LCD_string("hello world!");
 	while(1)
 	{
@@ -152,6 +164,9 @@ int main (void)
 		
 		LCD_clear();
 		LCD_string("Hello world!");
+		
+		uart_putchar('k');
+		//USART_transmit('k');
 		_delay_ms(1000);
 		//_delay_ms(BLINK_DELAY_MS);
 		//_delay_ms(BLINK_DELAY_MS);
