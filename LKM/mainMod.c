@@ -7,14 +7,19 @@
 #include <linux/uaccess.h>          // Required for the copy to user function
 #include <linux/usb.h>
 
-#define  DEVICE_NAME "ebbchar"    ///< The device will appear at /dev/ebbchar using this value
-#define  CLASS_NAME  "ebb"        ///< The device class -- this is a character device driver
+#define  DEVICE_NAME "lcdchar"    ///< The device will appear at /dev/ebbchar using this value
+#define  CLASS_NAME  "lcd"        ///< The device class -- this is a character device driver
  
-MODULE_LICENSE("MIT");            ///< The license type -- this affects available functionality
+MODULE_LICENSE("GPL");            ///< The license type -- this affects available functionality
 MODULE_AUTHOR("algisb");    ///< The author -- visible when you use modinfo
 MODULE_DESCRIPTION("Arduino LCD screen controller");  ///< The description -- see modinfo
 MODULE_VERSION("0.1");            ///< A version number to inform users
  
+
+
+static struct usb_device *device = NULL;
+static struct usb_class_driver class;
+//static unsigned char bulk_buf[MAX_PKT_SIZE];
 
 static int     dev_open(struct inode *, struct file *);
 static int     dev_release(struct inode *, struct file *);
@@ -34,18 +39,18 @@ static struct usb_device_id lcd_table [] = {
 
 MODULE_DEVICE_TABLE (usb, lcd_table);
 
-//static struct file_operations fops =
-//{
-//   .open = dev_open,
-//   .read = dev_read,
-//   .write = dev_write,
-//   .release = dev_release,
-//};
+static struct file_operations lcd_fops =
+{
+   .open = dev_open,
+   .read = dev_read,
+   .write = dev_write,
+   .release = dev_release,
+};
 
 static struct usb_driver lcd_driver = 
 {    
     	.name = "LCD_screen",
-	//.fops = &fops,
+	//.fops = &lcd_fops,
 	.id_table = lcd_table,
 	.probe = lcd_probe,
 	.disconnect = lcd_disconnect,
@@ -53,9 +58,9 @@ static struct usb_driver lcd_driver =
 
 
 
-static int __init ebbchar_init(void)
+static int __init lcdchar_init(void)
 {
-	printk(KERN_INFO "EBBChar: Initializing the EBBChar LKM\n");
+	printk(KERN_INFO "LCD_drv: Initializing the LCD_drv LKM\n");
 
 	int result;
 
@@ -70,9 +75,9 @@ static int __init ebbchar_init(void)
         return 0;
 }
  
-static void __exit ebbchar_exit(void)
+static void __exit lcdchar_exit(void)
 {
-	printk(KERN_INFO "EBBChar: Goodbye from the LKM!\n");
+	printk(KERN_INFO "LCD_drv: Goodbye from the LKM!\n");
 
 	usb_deregister(&lcd_driver);
 }
@@ -80,28 +85,62 @@ static void __exit ebbchar_exit(void)
 
 static int dev_open(struct inode *inodep, struct file *filep)
 {
-      return 0;
+	return 0;
 }
  
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
-      return 0;
+	return 0;
 }
- 
+
+static ssize_t dev_write(struct file *f, const char __user *buf, size_t cnt, loff_t *off)
+{
+
+	return 0;
+}
+
+static int dev_release(struct inode *i, struct file *f)
+{
+	return 0;
+}
+
 static int lcd_probe(struct usb_interface *interface, const struct usb_device_id *id)
 {
-    
-    printk(KERN_INFO "EBBChar: YAH YAH WEINER MEIN KAMPF\n");
-    
+	printk(KERN_INFO "LCD_drv: PROBING! \n");
+
+	if(device == NULL)
+	{
+		device = interface_to_usbdev(interface);
+
+		class.name = "usb/lcd%d";
+		class.fops = &lcd_fops;
+		int retval = usb_register_dev(interface, &class);
+		
+		if (retval < 0)
+		{	
+			printk("Not able to get a minor for this device.");
+		}
+		else
+		{
+			printk("Minor obtained: %d\n", interface->minor);
+		}
+		return retval;
+	}
+	else
+	{
+		return 0;
+	}
+
     /* called when a USB device is connected to the computer. */
-	return 0;
 }
 
 static void lcd_disconnect(struct usb_interface *interface)
 {
-    /* called when unplugging a USB device. */
+	/* called when unplugging a USB device. */
+	usb_deregister_dev(interface, &class);
+	device = NULL;
 }
 
 
-module_init(ebbchar_init);
-module_exit(ebbchar_exit);
+module_init(lcdchar_init);
+module_exit(lcdchar_exit);
