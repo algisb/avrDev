@@ -9,7 +9,14 @@
 
 #define  DEVICE_NAME "lcdchar"    ///< The device will appear at /dev/ebbchar using this value
 #define  CLASS_NAME  "lcd"        ///< The device class -- this is a character device driver
- 
+
+
+#define MIN(a,b) (((a) <= (b)) ? (a) : (b))
+#define BULK_EP_OUT 0x01
+#define BULK_EP_IN 0x82
+#define MAX_PKT_SIZE 512
+
+
 MODULE_LICENSE("GPL");            ///< The license type -- this affects available functionality
 MODULE_AUTHOR("algisb");    ///< The author -- visible when you use modinfo
 MODULE_DESCRIPTION("Arduino LCD screen controller");  ///< The description -- see modinfo
@@ -19,7 +26,8 @@ MODULE_VERSION("0.1");            ///< A version number to inform users
 
 static struct usb_device *device = NULL;
 static struct usb_class_driver class;
-//static unsigned char bulk_buf[MAX_PKT_SIZE];
+static unsigned char bulk_buf[MAX_PKT_SIZE];
+
 
 static int     dev_open(struct inode *, struct file *);
 static int     dev_release(struct inode *, struct file *);
@@ -41,10 +49,11 @@ MODULE_DEVICE_TABLE (usb, lcd_table);
 
 static struct file_operations lcd_fops =
 {
-   .open = dev_open,
-   .read = dev_read,
-   .write = dev_write,
-   .release = dev_release,
+	.owner = THIS_MODULE,
+	.open = dev_open,
+	.read = dev_read,
+	.write = dev_write,
+	.release = dev_release
 };
 
 static struct usb_driver lcd_driver = 
@@ -61,18 +70,15 @@ static struct usb_driver lcd_driver =
 static int __init lcdchar_init(void)
 {
 	printk(KERN_INFO "LCD_drv: Initializing the LCD_drv LKM\n");
-
-	int result;
-
         /* register this driver with the USB subsystem */
-        result = usb_register(&lcd_driver);
+        int result = usb_register(&lcd_driver);
         if (result < 0)
 	{
                 printk("usb_register failed for the "__FILE__ "driver. Error number %d", result);
                 return -1;
         }
 
-        return 0;
+        return result;
 }
  
 static void __exit lcdchar_exit(void)
@@ -88,15 +94,53 @@ static int dev_open(struct inode *inodep, struct file *filep)
 	return 0;
 }
  
-static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
+static ssize_t dev_read(struct file *f, char __user *buf, size_t cnt, loff_t *off)
 {
-	return 0;
+	int retval;
+	int read_cnt;
+
+	/* Read the data from the bulk endpoint */
+	retval = usb_bulk_msg(device, usb_rcvbulkpipe(device, BULK_EP_IN),
+	    bulk_buf, MAX_PKT_SIZE, &read_cnt, 5000);
+	if (retval)
+	{
+		printk(KERN_ERR "Bulk message returned %d\n", retval);
+		return retval;
+	}
+	if (copy_to_user(buf, bulk_buf, MIN(cnt, read_cnt)))
+	{
+		return -EFAULT;
+	}
+
+	return MIN(cnt, read_cnt);
 }
 
 static ssize_t dev_write(struct file *f, const char __user *buf, size_t cnt, loff_t *off)
 {
 
-	return 0;
+	int retval;
+	int wrote_cnt = MIN(cnt, MAX_PKT_SIZE);
+
+	if (copy_from_user(bulk_buf, buf, MIN(cnt, MAX_PKT_SIZE)))
+	{
+		return -1;
+	}
+
+	/* Write the data into the bulk endpoint */
+	retval = usb_bulk_msg(device, usb_sndbulkpipe(device, BULK_EP_OUT),
+	    bulk_buf, MIN(cnt, MAX_PKT_SIZE), &wrote_cnt, 5000);
+	if (retval)
+	{
+	printk(KERN_ERR "Bulk message returned %d\n", retval);
+		return retval;
+	}
+
+	return wrote_cnt;
+
+
+
+
+	//return 0;
 }
 
 static int dev_release(struct inode *i, struct file *f)
